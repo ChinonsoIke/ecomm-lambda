@@ -16,10 +16,10 @@ export const handler = async (event) => {
         case("/search"):
             return await search(evt.searchTerm);
         case("/carts"):
-            if(event.method == "POST") return await addToCart(evt.productId);
+            if(event.httpMethod == "POST") return await addToCart(evt.productId);
             else return await getCart();
         case("/orders"):
-            if(event.method == "POST") return await order(evt.productIds);
+            if(event.httpMethod == "POST") return await order(evt.productIds);
             else return await getOrders();
         default:
             return await getProducts();
