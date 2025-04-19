@@ -8,22 +8,22 @@ let claims = null;
 export const handler = async (event) => {
   try {
       claims = event.requestContext?.authorizer?.claims;
-      if (!claims) {
-        return {
-          statusCode: 401,
-          body: JSON.stringify({ message: "Unauthorized" }),
-        };
-      }
       
-      console.log(event);
       const evt = JSON.parse(event.body);
-      if (evt.type == "search"){
-        return await search(evt.searchTerm);
-      } else if (evt.type == "addToCart"){
-        return await addToCart(evt.productId);
-      } else if (evt.type == "order"){
-        return await order(evt.productIds);
-      } else return await getProducts();
+      switch(event.path){
+        case("/products"):
+            return await getProducts();
+        case("/search"):
+            return await search(evt.searchTerm);
+        case("/carts"):
+            if(event.method == "POST") return await addToCart(evt.productId);
+            else return await getCart();
+        case("/orders"):
+            if(event.method == "POST") return await order(evt.productIds);
+            else return await getOrders();
+        default:
+            return await getProducts();
+      }
   } catch (error) {
     console.error("Something went wrong:", error);
     return {
@@ -55,7 +55,6 @@ async function getProducts(){
 }
 
 async function search(searchTerm) {
-  console.log("Search term:", searchTerm);
   const command = new ScanCommand({
       TableName: "Products",
       FilterExpression: "contains(title, :val)",
@@ -79,7 +78,74 @@ async function search(searchTerm) {
   }
 }
 
+async function getCart() {
+    if (!claims) {
+        return {
+          statusCode: 401,
+          body: JSON.stringify({ message: "Unauthorized" }),
+        };
+    }
+
+    try {
+        const getCart = new ScanCommand({
+            TableName: "Carts",
+            FilterExpression: "userId = :userId",
+            ExpressionAttributeValues: {
+            ":userId": claims.sub,
+            },
+        });
+
+        const cartResult = await dynamoDB.send(getCart);
+        const cart = cartResult.Items?.[0];
+        const id = "";
+
+        if(!cart) {
+            id = Date.now().toString(36);
+            const createCart = new PutCommand({
+                TableName: "Carts",
+                Item: {
+                    id: id,
+                    userId: claims.sub
+                }
+            });
+            await dynamoDB.send(createCart);
+        } else id = cart.id
+    
+        const getCartItems = new ScanCommand({
+            TableName: "CartItems",
+            FilterExpression: "cartId = :cartId",
+            ExpressionAttributeValues: {
+            ":cartId": id,
+            },
+        });
+        const cartItemsResult = await dynamoDB.send(getCartItems);
+        const response = {
+            id: id,
+            userId: claims.sub,
+            items: cartItemsResult.Items
+        }
+        
+        return {
+          statusCode: 200,
+          body: JSON.stringify(response)
+        };
+    } catch (err) {
+        console.error("Get cart failed:", err);
+        return {
+          statusCode: 500,
+          body: JSON.stringify({ error: "Get cart failed" })
+        };
+    }
+}
+
 async function addToCart(productId) {
+    if (!claims) {
+        return {
+          statusCode: 401,
+          body: JSON.stringify({ message: "Unauthorized" }),
+        };
+    }
+
     //get user cart
     try {
         const getCart = new ScanCommand({
@@ -93,7 +159,7 @@ async function addToCart(productId) {
         const cartResult = await dynamoDB.send(getCart);
         const cart = cartResult.Items?.[0];
         const id = "";
-        
+
         if(!cart) {
             id = Date.now().toString(36);
             const createCart = new PutCommand({
@@ -130,7 +196,50 @@ async function addToCart(productId) {
     }
 }
 
+async function getOrders() {
+    if (!claims) {
+        return {
+          statusCode: 401,
+          body: JSON.stringify({ message: "Unauthorized" }),
+        };
+    }
+
+    try {
+        const getOrders = new ScanCommand({
+            TableName: "Orders",
+            FilterExpression: "userId = :userId",
+            ExpressionAttributeValues: {
+            ":userId": claims.sub,
+            },
+        });
+
+        const getOrdersResult = await dynamoDB.send(getOrders);
+        const response = {
+            userId: claims.sub,
+            items: getOrdersResult.Items
+        }
+        
+        return {
+          statusCode: 200,
+          body: JSON.stringify(response)
+        };
+    } catch (err) {
+        console.error("Get orders failed:", err);
+        return {
+          statusCode: 500,
+          body: JSON.stringify({ error: "Get orders failed" })
+        };
+    }
+}
+
 async function order(productIds) {
+    if (!claims) {
+        return {
+          statusCode: 401,
+          body: JSON.stringify({ message: "Unauthorized" }),
+        };
+    }
+
     const command = new PutCommand({
         TableName: "Orders",
         Item: {
