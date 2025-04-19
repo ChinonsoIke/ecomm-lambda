@@ -81,33 +81,40 @@ async function search(searchTerm) {
 
 async function addToCart(productId) {
     //get user cart
-    const getCart = new ScanCommand({
-        TableName: "Carts",
-        FilterExpression: "userId = :userId",
-        ExpressionAttributeValues: {
-          ":userId": claims.sub,
-        },
-    });
-
-    const result = await dynamoDB.send(getCart);
-    const cart = result.Items?.[0];
-    if(cart == null) {
-        return {
-            statusCode: 400,
-            body: JSON.stringify({ error: "Add to cart failed: user does not have a cart" })
-          };
-    }
-      
-    const command = new PutCommand({
-        TableName: "CartItems",
-        Item: {
-          id: Date.now().toString(36),
-          cartId: cart.id,
-          productId: productId
-        }
-    });
-    
     try {
+        const getCart = new ScanCommand({
+            TableName: "Carts",
+            FilterExpression: "userId = :userId",
+            ExpressionAttributeValues: {
+            ":userId": claims.sub,
+            },
+        });
+
+        const cartResult = await dynamoDB.send(getCart);
+        const cart = cartResult.Items?.[0];
+        const id = "";
+        
+        if(!cart) {
+            id = Date.now().toString(36);
+            const createCart = new PutCommand({
+                TableName: "Carts",
+                Item: {
+                    id: id,
+                    userId: claims.sub
+                }
+            });
+            await dynamoDB.send(createCart);
+        } else id = cart.id
+        
+        const command = new PutCommand({
+            TableName: "CartItems",
+            Item: {
+            id: Date.now().toString(36),
+            cartId: id,
+            productId: productId
+            }
+        });    
+    
         const result = await dynamoDB.send(command);
         console.log("Item added to cart:", result);
         return {
