@@ -5,4 +5,3 @@ Resources:
       Properties:
         Name: ecomm-lambda
         Alias: live
-        Version: 1
