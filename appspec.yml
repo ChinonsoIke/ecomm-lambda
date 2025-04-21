@@ -1,0 +1,8 @@
+version: 0.0
+Resources:
+  - MyLambdaFunction:
+      Type: AWS::Lambda::Function
+      Properties:
+        Name: ecomm-lambda
+        Alias: live
+        Version: 1
