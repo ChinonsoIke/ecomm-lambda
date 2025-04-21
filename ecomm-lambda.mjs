@@ -19,7 +19,7 @@ export const handler = async (event) => {
             if(event.httpMethod == "POST") return await addToCart(evt.productId);
             else return await getCart();
         case("/orders"):
-            if(event.httpMethod == "POST") return await order(evt.productIds);
+            if(event.httpMethod == "POST") return await order(evt);
             else return await getOrders();
         default:
             return await getProducts();
@@ -232,7 +232,7 @@ async function getOrders() {
     }
 }
 
-async function order(productIds) {
+async function order(request) {
     if (!claims) {
         return {
           statusCode: 401,
@@ -240,13 +240,12 @@ async function order(productIds) {
         };
     }
 
+    request.id = Date.now().toString(36);
+    request.userId = claims.sub;
+
     const command = new PutCommand({
         TableName: "Orders",
-        Item: {
-          id: Date.now().toString(36),
-          userId: claims.sub,
-          productIds: productIds
-        }
+        Item: request
     });
     
     try {
