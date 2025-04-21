@@ -1,0 +1,23 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 22
+    commands:
+      - npm install --production  # Only install production dependencies
+      
+  build:
+    commands:
+      - npm run build --if-present  # Only runs if you have a build script
+      - npm test --if-present     # Only runs if you have tests
+      
+  post_build:
+    commands:
+      # Create the deployment package (zip all files except what's in .gitignore)
+      - zip -r function.zip . -x "*.git*" -x "*.DS_Store*"
+
+artifacts:
+  files:
+    - 'function.zip'
+  discard-paths: yes  # Puts the zip at root level in artifact
