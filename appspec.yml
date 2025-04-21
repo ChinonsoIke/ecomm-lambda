@@ -3,5 +3,5 @@ Resources:
   - MyLambdaFunction:
       Type: AWS::Lambda::Function
       Properties:
-        Name: ecomm-lambda
+        Name: project-ecomm
         Alias: live
