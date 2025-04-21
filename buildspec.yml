@@ -4,7 +4,7 @@ phases:
   post_build:
     commands:
       # Create zip containing just your index.mjs
-      - zip function.zip index.mjs
+      - zip function.zip ecomm-lambda.mjs
 
 artifacts:
   files:
