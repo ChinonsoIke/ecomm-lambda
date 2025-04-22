@@ -15,12 +15,17 @@ export const handler = async (event) => {
             return await getProducts();
         case("/search"):
             return await search(evt.searchTerm);
-        case("/carts"):
+        case("/cart"):
             if(event.httpMethod == "POST") return await addToCart(evt.productId);
             else return await getCart();
         case("/orders"):
             if(event.httpMethod == "POST") return await order(evt);
             else return await getOrders();
+        case("/test"):
+            return {
+                statusCode: 200,
+                body: JSON.stringify({ testing: "latest version running" }),
+            };
         default:
             return await getProducts();
       }
