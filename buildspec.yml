@@ -1,13 +1,19 @@
 version: 0.2
 
 phases:
-  post_build:
+  install:
+    runtime-versions:
+      nodejs: 22
+  build:
     commands:
-      # Create zip containing just your index.mjs
-      - zip function.zip ecomm-lambda.mjs
+      - echo "Zipping the function"
+      - zip -r function.zip ecomm-lambda.mjs node_modules
+      - echo "Updating Lambda function"
+      - aws lambda update-function-code \
+          --function-name project-ecomm \
+          --zip-file fileb://function.zip \
+          --region us-east-2
 
 artifacts:
   files:
-    - 'function.zip'
-    - 'appspec.yml'
-  discard-paths: yes  # Ensures zip is at root level  
+    - function.zip
