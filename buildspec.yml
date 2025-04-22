@@ -9,10 +9,7 @@ phases:
       - echo "Zipping the function"
       - zip -r function.zip ecomm-lambda.mjs node_modules
       - echo "Updating Lambda function"
-      - aws lambda update-function-code \
-          --function-name project-ecomm \
-          --zip-file fileb://function.zip \
-          --region us-east-2
+      - aws lambda update-function-code --function-name project-ecomm --zip-file fileb://function.zip  --region us-east-2
 
 artifacts:
   files:
