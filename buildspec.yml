@@ -10,4 +10,4 @@ artifacts:
   files:
     - 'function.zip'
     - 'appspec.yml'
-  discard-paths: yes  # Ensures zip is at root level
+  discard-paths: yes  # Ensures zip is at root level 
