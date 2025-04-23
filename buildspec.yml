@@ -18,32 +18,13 @@ phases:
       - zip -r function.zip index.mjs node_modules
 
       - echo "Publishing shared Lambda layer..."
-      - LAYER_VERSION=$(aws lambda publish-layer-version \
-          --layer-name shared-utils \
-          --content ZipFile=fileb://shared-layer.zip \
-          --region us-east-2 \
-          --compatible-runtimes nodejs18.x \
-          --query Version --output text)
+      - LAYER_VERSION=$(aws lambda publish-layer-version --layer-name shared-utils --content ZipFile=fileb://shared-layer.zip --region us-east-2 --compatible-runtimes nodejs18.x --query Version --output text)
 
       - echo "Updating modern Lambda functions with new layer..."
-      - for FUNCTION in eccom-products eccom-cart eccom-orders eccom-sub; do
-          ZIP_FILE="${FUNCTION}.zip";
-          echo "Deploying $FUNCTION from $ZIP_FILE";
-          aws lambda update-function-code \
-            --function-name $FUNCTION \
-            --zip-file fileb://$ZIP_FILE \
-            --region us-east-2;
-          aws lambda update-function-configuration \
-            --function-name $FUNCTION \
-            --layers arn:aws:lambda:us-east-2:$(aws sts get-caller-identity --query Account --output text):layer:shared-utils:$LAYER_VERSION \
-            --region us-east-2;
-        done
+      - for FUNCTION in eccom-products eccom-cart eccom-orders eccom-sub; do ZIP_FILE="${FUNCTION}.zip"; echo "Deploying $FUNCTION from $ZIP_FILE"; aws lambda update-function-code --function-name $FUNCTION --zip-file fileb://$ZIP_FILE --region us-east-2; aws lambda update-function-configuration --function-name $FUNCTION --layers arn:aws:lambda:us-east-2:$(aws sts get-caller-identity --query Account --output text):layer:shared-utils:$LAYER_VERSION --region us-east-2; done
 
       - echo "Deploying legacy Lambda function project-ecomm..."
-      - aws lambda update-function-code \
-          --function-name project-ecomm \
-          --zip-file fileb://function.zip \
-          --region us-east-2
+      - aws lambda update-function-code --function-name project-ecomm --zip-file fileb://function.zip --region us-east-2
 
 artifacts:
   files:
