@@ -13,8 +13,8 @@ phases:
       - cd eccom-orders && zip -r ../eccom-orders.zip . && cd ..
       - cd eccom-sub && zip -r ../eccom-sub.zip . && cd ..
 
-      - echo "Zipping shared Lambda layer (correct structure)..."
-      - cd layer && zip -r ../shared-layer.zip . && cd ..
+      - echo "Zipping shared Lambda layer with node_modules style..."
+      - cd layer && zip -r ../shared-layer.zip nodejs && cd ..
 
       - echo "Zipping legacy function (project-ecomm)..."
       - zip -r function.zip index.mjs node_modules
