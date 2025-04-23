@@ -7,12 +7,12 @@ phases:
 
   build:
     commands:
-      - echo "Zipping all Lambda functions..."
-      - zip -r eccom-products.zip eccom-products/
-      - zip -r eccom-cart.zip eccom-cart/
-      - zip -r eccom-orders.zip eccom-orders/
-      - zip -r eccom-sub.zip eccom-sub/
-      - zip -r shared-layer.zip layer/
+      - echo "Zipping all Lambda functions correctly..."
+      - cd eccom-products && zip -r ../eccom-products.zip . && cd ..
+      - cd eccom-cart && zip -r ../eccom-cart.zip . && cd ..
+      - cd eccom-orders && zip -r ../eccom-orders.zip . && cd ..
+      - cd eccom-sub && zip -r ../eccom-sub.zip . && cd ..
+      - cd layer && zip -r ../shared-layer.zip . && cd ..
 
       - echo "Zipping legacy function (project-ecomm)..."
       - zip -r function.zip index.mjs node_modules
