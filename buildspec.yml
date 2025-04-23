@@ -7,11 +7,13 @@ phases:
 
   build:
     commands:
-      - echo "Zipping all Lambda functions correctly..."
+      - echo "Zipping Lambda functions correctly..."
       - cd eccom-products && zip -r ../eccom-products.zip . && cd ..
       - cd eccom-cart && zip -r ../eccom-cart.zip . && cd ..
       - cd eccom-orders && zip -r ../eccom-orders.zip . && cd ..
       - cd eccom-sub && zip -r ../eccom-sub.zip . && cd ..
+
+      - echo "Zipping shared Lambda layer (correct structure)..."
       - cd layer && zip -r ../shared-layer.zip . && cd ..
 
       - echo "Zipping legacy function (project-ecomm)..."
