@@ -193,7 +193,7 @@ async function search(query = "") {
 
 async function getCart() {
   if (!claims) {
-    return formatResponse(401, { data: null, error: "Unauthorized" });
+    return formatResponse(401, { data: null, error: "Unauthorized user" });
   }
   try {
     const getCart = new ScanCommand({
