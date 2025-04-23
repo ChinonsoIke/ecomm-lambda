@@ -1,5 +1,5 @@
-import { dynamoDB } from "/opt/clients.js";
-import { formatResponse } from "/opt/utils.js";
+import { dynamoDB } from "clients";
+import { formatResponse } from "utils";
 import { ScanCommand, GetCommand } from "@aws-sdk/lib-dynamodb";
 
 export const handler = async (event) => {

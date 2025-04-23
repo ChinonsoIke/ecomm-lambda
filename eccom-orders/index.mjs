@@ -1,69 +1,142 @@
-import { dynamoDB, sesClient } from "/opt/clients.js";
-import { formatResponse } from "/opt/utils.js";
-import { ScanCommand, PutCommand, GetCommand } from "@aws-sdk/lib-dynamodb";
+import { dynamoDB, sesClient } from "clients";
+import { formatResponse } from "utils";
+import {
+  ScanCommand,
+  PutCommand,
+  GetCommand
+} from "@aws-sdk/lib-dynamodb";
 import { SendEmailCommand } from "@aws-sdk/client-ses";
 
+let claims = null;
+
 export const handler = async (event) => {
-  const { httpMethod, path, requestContext, body } = event;
-  const claims = requestContext?.authorizer?.claims;
-  const userId = claims?.sub;
-  const email = claims?.email;
-
-  if (!userId) return formatResponse(401, { data: null, error: "Unauthorized" });
-
-  if (path === "/orders" && httpMethod === "GET") {
-    return await getOrders(userId);
+  if (event.httpMethod === "OPTIONS") {
+    return formatResponse(200, {});
   }
 
-  if (path === "/orders" && httpMethod === "POST") {
-    const { productIds } = JSON.parse(body || "{}");
-    return await placeOrder(userId, email, productIds);
-  }
+  try {
+    claims = event.requestContext?.authorizer?.claims;
+    const evt = event.body && event.body !== "" ? JSON.parse(event.body) : {};
 
-  return formatResponse(404, { data: null, error: "Route not found" });
+    const path = event.rawPath || event.path || "";
+    const httpMethod = event.httpMethod || "";
+
+    switch (true) {
+      case path === "/orders" && httpMethod === "POST":
+        return await order(evt.productIds);
+      case path === "/orders" && httpMethod === "GET":
+        return await getOrders();
+      case path === "/test":
+        return formatResponse(200, { data: { testing: "orders version running" }, message: "Orders test route working" });
+      default:
+        return formatResponse(404, { data: null, error: "Route not found " + path });
+    }
+  } catch (error) {
+    console.error("Unhandled Error:", error);
+    return formatResponse(500, { data: null, error: error.message });
+  }
 };
 
-async function getOrders(userId) {
-  const command = new ScanCommand({
-    TableName: "Orders",
-    FilterExpression: "userId = :userId",
-    ExpressionAttributeValues: { ":userId": userId }
-  });
+async function getOrders() {
+  if (!claims) {
+    return formatResponse(401, { data: null, error: "Unauthorized" });
+  }
+  try {
+    const getOrders = new ScanCommand({
+      TableName: "Orders",
+      FilterExpression: "userId = :userId",
+      ExpressionAttributeValues: { ":userId": claims.sub }
+    });
+    const getOrdersResult = await dynamoDB.send(getOrders);
+    const orders = getOrdersResult.Items || [];
 
-  const result = await dynamoDB.send(command);
-  return formatResponse(200, { data: result.Items || [], message: "Orders fetched" });
+    const ordersWithProducts = await Promise.all(
+      orders.map(async (order) => {
+        const products = await Promise.all(
+          order.productIds.map(async (productId) => {
+            const getProduct = new GetCommand({
+              TableName: "Products",
+              Key: { id: productId }
+            });
+            const productResult = await dynamoDB.send(getProduct);
+            return productResult.Item || null;
+          })
+        );
+        return {
+          ...order,
+          products: products.filter(Boolean)
+        };
+      })
+    );
+
+    const response = { userId: claims.sub, orders: ordersWithProducts };
+    return formatResponse(200, { data: response, message: "Orders fetched successfully" });
+  } catch (err) {
+    console.error("Get orders failed:", err);
+    return formatResponse(500, { data: null, error: "Get orders failed" });
+  }
 }
 
-async function placeOrder(userId, email, productIds) {
-  const order = {
+async function order(productIds) {
+  if (!claims) {
+    return formatResponse(401, { data: null, error: "Unauthorized" });
+  }
+
+  const orderItem = {
     id: Date.now().toString(36),
-    userId,
-    productIds,
+    userId: claims.sub,
+    productIds: productIds,
     orderedAt: new Date().toISOString()
   };
 
-  const putCommand = new PutCommand({
+  const command = new PutCommand({
     TableName: "Orders",
-    Item: order
+    Item: orderItem
   });
 
-  await dynamoDB.send(putCommand);
+  try {
+    await dynamoDB.send(command);
 
-  if (email) {
-    await sendOrderConfirmationEmail(order, email);
+    const userEmail = claims.email;
+    if (userEmail) {
+      await sendOrderConfirmationEmail(orderItem, userEmail);
+    }
+
+    return formatResponse(200, { data: orderItem, message: "Order placed successfully" });
+  } catch (err) {
+    console.error("Order failed:", err);
+    return formatResponse(500, { data: null, error: "Order failed" });
   }
-
-  return formatResponse(200, { data: order, message: "Order placed successfully" });
 }
 
-async function sendOrderConfirmationEmail(order, userEmail) {
+async function sendOrderConfirmationEmail(orderItem, userEmail) {
   const htmlBody = `
     <html>
-      <body style="font-family: Arial; padding: 20px;">
-        <h2 style="color: #4CAF50;">Order Confirmation</h2>
-        <p>Order ID: <strong>${order.id}</strong></p>
-        <p>Ordered At: <strong>${order.orderedAt}</strong></p>
-        <p>Products: ${order.productIds.map(id => `<div>${id}</div>`).join("")}</p>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <div style="max-width: 600px; margin: auto; border: 1px solid #ddd; padding: 20px;">
+          <div style="text-align: center;">
+            <img src="https://yourdomain.com/logo.png" alt="Company Logo" style="max-height: 60px;"/>
+          </div>
+          <h2 style="color: #4CAF50; text-align: center;">Order Confirmation</h2>
+          <p>Hi there,</p>
+          <p>Thank you for your purchase! Here are your order details:</p>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd;">Order ID:</td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${orderItem.id}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd;">Ordered At:</td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${orderItem.orderedAt}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd;">Products:</td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${orderItem.productIds.map(pid => `<div>${pid}</div>`).join("")}</td>
+            </tr>
+          </table>
+          <p style="margin-top: 20px;">If you have any questions, feel free to contact our support team.</p>
+          <p style="text-align: center; color: #999;">&copy; ${new Date().getFullYear()} Your Company Name</p>
+        </div>
       </body>
     </html>
   `;
@@ -71,20 +144,16 @@ async function sendOrderConfirmationEmail(order, userEmail) {
   const emailParams = {
     Destination: { ToAddresses: [userEmail] },
     Message: {
-      Body: {
-        Html: { Data: htmlBody },
-        Text: {
-          Data: `Order ID: ${order.id}\nOrdered At: ${order.orderedAt}\nProducts: ${order.productIds.join(", ")}`
-        }
-      },
-      Subject: { Data: `Order Confirmation - ${order.id}` }
+      Body: { Html: { Data: htmlBody } },
+      Subject: { Data: `Order Confirmation - ${orderItem.id}` }
     },
     Source: "contact@anasroud.com"
   };
 
   try {
     await sesClient.send(new SendEmailCommand(emailParams));
+    console.log("Order confirmation email sent!");
   } catch (error) {
-    console.error("Failed to send confirmation email:", error);
+    console.error("Failed to send email:", error);
   }
 }
